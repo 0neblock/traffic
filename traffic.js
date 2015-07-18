@@ -10,27 +10,61 @@ function car() {
         ctx.stroke();
     };
     this.moving = true;
+    this.decelerating = false;
     this.move = function(){
             // Check for any closed intersections ahead, soon to be cars too
             if(this.currentRoad){
                 if(this.currentRoad.blockages.indexOf(this) < this.currentRoad.blockages.length - 1){
                     var obstacle = this.currentRoad.blockages[this.currentRoad.blockages.indexOf(this) + 1];
+                    if(obstacle instanceof intersection && obstacle.flow == this.currentRoad.direction && !obstacle.yellow){
+                        if(this.currentRoad.blockages.indexOf(this) == this.currentRoad.blockages.length - 2){
+                            // obstacle is far far away
+                            var obstacle = {x: 9999, y: 9999};
+                        } else {
+                            // ignore the open intersection, look for the next blockage
+                            obstacle = this.currentRoad.blockages[this.currentRoad.blockages.indexOf(this) + 2];
+                            var thisPos = (this.direction == 1 || this.direction == 3 ? this.y : this.x);
+                            var obstaclePos = (this.direction == 1 || this.direction == 3 ? obstacle.y : obstacle.x);
+                            if(obstaclePos - thisPos < 35){
+                                // Car will block intersection if it proceeds, so reinstate original obstacle
+                                obstacle = this.currentRoad.blockages[this.currentRoad.blockages.indexOf(this) + 1];
+                            }
+                            
+                            
+                        }
+                    }
                     var thisPos = (this.direction == 1 || this.direction == 3 ? this.y : this.x);
                     var obstaclePos = (this.direction == 1 || this.direction == 3 ? obstacle.y : obstacle.x);
+                    
                     if(thisPos > obstaclePos - 50){
                         // within acting distance of a car/intersection
+                        // TODO do something special with yellow lights so cars don't stop suddenly if they are right next to intersection
+                        // 
+                        
                         var oldSpeed = this.speed;
                         var tempPos = obstaclePos;
-                        if(tempPos - thisPos - 7 < 35){
+                        if(obstacle instanceof intersection && obstacle.yellow && obstacle.flow == this.currentRoad.direction && !this.decelerating){
+                            if(tempPos - thisPos - 7 < 15){
+                                if(this.speed < .5){
+                                    this.speed *= 1.5;
+                                   if(this.speed > .5) this.speed = .5;
+                                }
+                            } else {
+                                this.speed = (tempPos - thisPos - 9) / 70;
+                            }
+                        } else if(tempPos - thisPos - 7 < 35){
                             this.speed = (tempPos - thisPos - 9) / 70;
                         }
                         if(oldSpeed < this.speed){
                             // Accelerating
                             this.moving = true;
+                            this.decelerating = false;
                         } else {
                             // Decellerating
                             if(this.speed < 0.05) this.moving = false;
+                            this.decelerating = true;
                         }
+                        
                     } else {
                         if(this.speed < .5){
                             this.speed += .025;
@@ -137,9 +171,10 @@ function road(placex, placey, direction, length){
             } else {
                 var inter = this.intersections[currentIntersection++];
                 
-                if(inter.flow != this.direction){
-                    this.blockages.push(inter);
-                }
+            
+                this.blockages.push(inter);
+            
+                
             }
         }
         this.blockages.sort(function(a, b){
@@ -201,7 +236,6 @@ function removeCar(car){
 }
 
 function newCar(tempCar, tempRoad){
-    console.log("new car");
     cars.push(tempCar);
     numCars++;
     tempRoad.addCar(tempCar, 0);
@@ -278,5 +312,5 @@ $(function(){
             
         }
         
-    }, 3000);
+    }, 2000);
 });
